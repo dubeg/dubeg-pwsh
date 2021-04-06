@@ -129,14 +129,14 @@ function Restart-Explorer {
 
 
 # ------------------------------------------------------------------
-# Start PowerShell with admin rights
+# Start Terminal with admin rights
 # ------------------------------------------------------------------
-function Start-ElevatedPowerShell {
-    $command = "-NoExit -Command `"Set-Location " + $pwd + "`"";
-    $exe = "C:\Program Files\PowerShell\7\pwsh.exe";
-    Start-Process $exe -Verb Runas -ArgumentList $command
+function Start-ElevatedTerminal {
+    Start-Process "wt" `
+        -Verb Runas `
+        -ArgumentList "-d $pwd"
 }
-Set-Alias -Name sudo -Value Start-ElevatedPowerShell | out-null
+Set-Alias -Name sudo -Value Start-ElevatedTerminal | out-null
 
 
 # ------------------------------------------------------------------
