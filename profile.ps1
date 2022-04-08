@@ -9,7 +9,7 @@ $env:HOME = $HOMEDIR
 # Alias
 # ~~~~~~~~~~~~
 Set-Alias dumpbin "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\dumpbin.exe"
-Set-alias chrome "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+Set-alias chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
 Set-alias merge "C:\Program Files\Sublime Merge\sublime_merge.exe"
 Set-alias 7zip "C:\Program Files\7-Zip\7z.exe" 
 Set-alias bcomp "C:\Program Files\Beyond Compare 4\BComp.exe" 
