@@ -13,6 +13,7 @@ Set-alias chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
 Set-alias merge "C:\Program Files\Sublime Merge\sublime_merge.exe"
 Set-alias 7zip "C:\Program Files\7-Zip\7z.exe" 
 Set-alias bcomp "C:\Program Files\Beyond Compare 4\BComp.exe" 
+Set-alias vd "D:\Repositories\VirtualDesktop\VirtualDesktop.exe"
 # --
 # Use dotnet-script instead of csi.
 # Set-alias csi "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\MSBuild\15.0\Bin\Roslyn\csi.exe"
