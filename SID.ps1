@@ -1,9 +1,11 @@
 function Convert-NameToSID {
     Param(
-        [string]$name
+        [string]$name,
+        [string]$domain
     )
-    
-    $domain = (Get-WmiObject Win32_ComputerSystem).Domain
+    if ($domain -eq $null) {
+        $domain = (Get-WmiObject Win32_ComputerSystem).Domain
+    }
     $Account = New-Object System.Security.Principal.NTAccount($domain, $name)
     $Identifier = $Account.Translate([System.Security.Principal.SecurityIdentifier])
     $Identifier.Value
