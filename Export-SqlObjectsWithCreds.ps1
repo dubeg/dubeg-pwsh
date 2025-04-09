@@ -41,6 +41,12 @@ function Export-SqlObjects
     $conn = New-Object "Microsoft.SqlServer.Management.Common.ServerConnection" $ServerName,$UserName,$Password
     $srv = New-Object "Microsoft.SqlServer.Management.SMO.Server" $conn
 
+    # $svr.GetDefaultInitFields(typeof(StoredProcedure)); 
+    # $svr.SetDefaultInitFields(typeof(StoredProcedure), "IsSystemObject");
+    # $svr.SetDefaultInitFields(typeof(Table), "IsSystemObject");
+    # $svr.SetDefaultInitFields(typeof(Views), "IsSystemObject");
+    # $svr.SetDefaultInitFields(typeof(UserDefinedFunctions), "IsSystemObject");
+
     $db = New-Object "Microsoft.SqlServer.Management.SMO.Database"
     $db = $srv.Databases[$databaseName]
 
@@ -118,15 +124,20 @@ function Export-SqlObjects
         Remove-Item
 }
 
-function GenerateScripts($items, $path, $createPath = $True)
-{
+function GenerateScripts($items, $path, $createPath = $True, $includeSystemObjects = $true) {
     if ($createPath) {
         New-Item -Type Directory $path -Force | Out-Null
     }
     $count = 0;
-    foreach ($item in $items)
-    {
-        if ($item.IsSystemObject) {continue;}
+    $systemCount = 0;
+    $i = 0;
+    Write-Host "Total: $($items.Count)";
+    foreach ($item in $items) {
+        $i += 1;
+        if ($item.IsSystemObject -and (-not $includeSystemObjects)) {
+            $systemCount += 1;
+            continue;
+        }
         
         $filename = $item.Name + ".sql"
         if (-not [string]::IsNullOrEmpty($item.Schema)) {
@@ -135,18 +146,18 @@ function GenerateScripts($items, $path, $createPath = $True)
 
         $options.FileName = Join-Path $path (Remove-InvalidFileNameChars $filename)
 
-        try
-        {
+        try {
             $count += 1;
             $item.Script($options)
-            Write-Host -NoNewLine ("`r{0} exported." -f $count);
+            Write-Host -NoNewLine "`r$i processed; $count exported; $systemCount skipped (system)";
         }
-        catch [Exception]
-        {
+        catch [Exception] {
+            Write-Host "Uh oh";
             echo $_.Exception | format-list -force
             throw $_.Exception
         }
     } 
+    Write-Host -NoNewLine "`r$i processed; $count exported; $systemCount skipped (system)";
     if ($count -gt 0) { Write-Host ""; }
 }
 
