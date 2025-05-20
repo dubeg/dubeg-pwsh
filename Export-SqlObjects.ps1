@@ -1,4 +1,40 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$ServerName,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$DatabaseName,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$OutputDir,
+    
+    [Parameter(Mandatory=$false)]
+    [SqlObjectTypes]$ObjectTypes = [SqlObjectTypes]::All
+)
+
 $ErrorActionPreference = "Stop";
+
+# Check for SqlServer module and load it
+function EnsureSqlServerModule {
+    if (-not (Get-Module -Name SqlServer -ListAvailable)) {
+        Write-Host "SqlServer module not found. Attempting to install..."
+        try {
+            Install-Module -Name SqlServer -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+        }
+        catch {
+            Write-Error "Failed to install SqlServer module: $_"
+            Write-Host "Please run 'Install-Module -Name SqlServer -Scope CurrentUser -Force -AllowClobber' manually."
+            exit 1
+        }
+    }
+    
+    if (-not (Get-Module -Name SqlServer)) {
+        Write-Host "Loading SqlServer module..."
+        Import-Module -Name SqlServer -ErrorAction Stop
+    }
+}
+
 Add-Type -TypeDefinition @"
     [System.Flags]
     public enum SqlObjectTypes {
@@ -24,11 +60,37 @@ function Export-SqlObjects
         [Parameter(Mandatory=$true)]
         [SqlObjectTypes]$ObjectTypes = [SqlObjectTypes]::All
     )
-    [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") | Out-Null
-    $srv = new-object "Microsoft.SqlServer.Management.SMO.Server" $serverName
     
-    $db = New-Object "Microsoft.SqlServer.Management.SMO.Database"
-    $db = $srv.Databases[$databaseName]
+    # Ensure the SqlServer module is loaded
+    EnsureSqlServerModule
+    
+    # Load SMO assemblies if needed
+    if (-not ([System.Management.Automation.PSTypeName]'Microsoft.SqlServer.Management.Smo.Server').Type) {
+        [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") | Out-Null
+        [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo") | Out-Null
+    }
+    
+    # Prompt for credentials
+    $credential = Get-Credential -Message "Enter SQL Server credentials for $ServerName"
+    $Username = $credential.UserName
+    $Password = $credential.GetNetworkCredential().Password
+    
+    $conn = New-Object "Microsoft.SqlServer.Management.Common.ServerConnection" $ServerName,$Username,$Password
+    $conn.Connect();
+    if ($conn.IsOpen) {
+        Write-Host "Connection successful"
+    } else {
+        Write-Host "Connection failed"
+    }
+    $srv = New-Object "Microsoft.SqlServer.Management.SMO.Server" $conn
+
+    # $svr.GetDefaultInitFields(typeof(StoredProcedure)); 
+    # $svr.SetDefaultInitFields(typeof(StoredProcedure), "IsSystemObject");
+    # $svr.SetDefaultInitFields(typeof(Table), "IsSystemObject");
+    # $svr.SetDefaultInitFields(typeof(Views), "IsSystemObject");
+    # $svr.SetDefaultInitFields(typeof(UserDefinedFunctions), "IsSystemObject");
+
+    $db = $srv.Databases[$DatabaseName]
 
     $scr = New-Object "Microsoft.SqlServer.Management.Smo.Scripter"
     $scr.Server = $srv
@@ -104,15 +166,20 @@ function Export-SqlObjects
         Remove-Item
 }
 
-function GenerateScripts($items, $path, $createPath = $True)
-{
+function GenerateScripts($items, $path, $createPath = $True, $includeSystemObjects = $true) {
     if ($createPath) {
         New-Item -Type Directory $path -Force | Out-Null
     }
     $count = 0;
-    foreach ($item in $items)
-    {
-        if ($item.IsSystemObject) {continue;}
+    $systemCount = 0;
+    $i = 0;
+    Write-Host "Total: $($items.Count)";
+    foreach ($item in $items) {
+        $i += 1;
+        if ($item.IsSystemObject -and (-not $includeSystemObjects)) {
+            $systemCount += 1;
+            continue;
+        }
         
         $filename = $item.Name + ".sql"
         if (-not [string]::IsNullOrEmpty($item.Schema)) {
@@ -121,18 +188,18 @@ function GenerateScripts($items, $path, $createPath = $True)
 
         $options.FileName = Join-Path $path (Remove-InvalidFileNameChars $filename)
 
-        try
-        {
+        try {
             $count += 1;
             $item.Script($options)
-            Write-Host -NoNewLine ("`r{0} exported." -f $count);
+            Write-Host -NoNewLine "`r$i processed; $count exported; $systemCount skipped (system)";
         }
-        catch [Exception]
-        {
+        catch [Exception] {
+            Write-Host "Uh oh";
             echo $_.Exception | format-list -force
             throw $_.Exception
         }
     } 
+    Write-Host -NoNewLine "`r$i processed; $count exported; $systemCount skipped (system)";
     if ($count -gt 0) { Write-Host ""; }
 }
 
@@ -149,3 +216,7 @@ function Remove-InvalidFileNameChars {
   $re = "[{0}]" -f [RegEx]::Escape($invalidChars)
   return ($Name -replace $re)
 }
+
+
+# Execute the function with the provided parameters
+Export-SqlObjects -ServerName $ServerName -DatabaseName $DatabaseName -OutputDir $OutputDir -ObjectTypes $ObjectTypes
