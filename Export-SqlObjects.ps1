@@ -15,6 +15,22 @@ param(
 
 $ErrorActionPreference = "Stop";
 
+# --------------------------------------------
+# Run this manually before calling this script:
+# --------------------------------------------
+# Add-Type -TypeDefinition @"
+#     [System.Flags]
+#     public enum SqlObjectTypes {
+#         All = 0,
+#         Tables = 1,
+#         Procedures = 2,
+#         Functions = 4,
+#         Views = 8,
+#         DatabaseTriggers = 16,
+#         TableTriggers = 32
+#     }
+# "@
+
 # Check for SqlServer module and load it
 function EnsureSqlServerModule {
     if (-not (Get-Module -Name SqlServer -ListAvailable)) {
@@ -34,19 +50,6 @@ function EnsureSqlServerModule {
         Import-Module -Name SqlServer -ErrorAction Stop
     }
 }
-
-Add-Type -TypeDefinition @"
-    [System.Flags]
-    public enum SqlObjectTypes {
-        All = 0,
-        Tables = 1,
-        Procedures = 2,
-        Functions = 4,
-        Views = 8,
-        DatabaseTriggers = 16,
-        TableTriggers = 32
-    }
-"@
 
 function Export-SqlObjects
 {
